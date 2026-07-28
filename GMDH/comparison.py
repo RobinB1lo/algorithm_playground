@@ -1,7 +1,7 @@
 """
 Comprehensive Comparison Script: All GMDH Variants
 
-Compares 9 GMDH implementations:
+Compares 13 GMDH implementations:
 1. Vanilla GMDH (baseline error-based)
 2. GMDH with AIC (information criterion)
 3. GMDH with Hierarchical Ranking (multi-metric)
@@ -9,8 +9,12 @@ Compares 9 GMDH implementations:
 5. GMDH with Constrained Fractional Polynomials
 6. GMDH with Unconstrained Fractional Polynomials
 7. GMDH with Spline Basis Functions
-8. GMDH with UFP + Hierarchical (combined)
-9. GMDH with UFP + Hierarchical + CV (combined)
+8. GMDH with RBF Basis Functions
+9. GMDH with Sigmoid Basis Functions
+10. GMDH with Trigonometric (Fourier) Basis Functions
+11. GMDH with Look-Back Connections
+12. GMDH with UFP + Hierarchical (combined)
+13. GMDH with UFP + Hierarchical + CV (combined)
 
 Plus baselines: Linear Regression, Ridge, Random Forest, Gradient Boosting
 """
@@ -27,15 +31,19 @@ import warnings
 warnings.filterwarnings('ignore')
 
 # Import all GMDH variants
-from gmdh import GMDH
-from gmdh_aic import GMDH_AIC
-from hierarchical_gmdh import GMDH_Hierarchical
-from cv_gmdh import GMDH_CV
-from cfp_gmdh import GMDH_Constrained
-from ufp_gmdh import GMDH_Unconstrained
-from spline_basis_gmdh import GMDH_Spline
-from ufp_hierarchical_gmdh import GMDH_UFP_Hierarchical
-from ufp_hierarchical_cv_gmdh import GMDH_UFP_Hierarchical_CV
+from GMDH.vanilla.gmdh import GMDH
+from GMDH.evaluation_metric_change.aic.gmdh_aic import GMDH_AIC
+from GMDH.evaluation_metric_change.hierarchical.hierarchical_gmdh import GMDH_Hierarchical
+from GMDH.cv_and_look_back.cv.cv_gmdh import GMDH_CV
+from GMDH.fractional_polynomials.cfp.cfp_gmdh import GMDH_Constrained
+from GMDH.fractional_polynomials.ufp.ufp_gmdh import GMDH_Unconstrained
+from GMDH.basis_change.spline.spline_basis_gmdh import GMDH_Spline
+from GMDH.basis_change.radial.rbf_basis_gmdh import GMDH_RBF
+from GMDH.basis_change.sigmoid.sigmoid_basis_gmdh import GMDH_Sigmoid
+from GMDH.basis_change.fourier.fourier_basis_gmdh import GMDH_Trig
+from GMDH.cv_and_look_back.look_back.look_back_gmdh import GMDH_LookBack
+from GMDH.fractional_polynomials.ufp_hierarchical.ufp_hierarchical_gmdh import GMDH_UFP_Hierarchical
+from GMDH.fractional_polynomials.ufp_hierarchical_cv.ufp_hierarchical_cv_gmdh import GMDH_UFP_Hierarchical_CV
 
 
 def generate_synthetic_data(n_samples=500, random_state=42):
@@ -142,8 +150,14 @@ def main():
         (GMDH_Unconstrained(n_keep=8, max_layers=10, k_folds=5, penalty_type='l2', penalty_lambda=0.01, random_state=42), "GMDH-UFP-L2"),
         (GMDH_Unconstrained(n_keep=8, max_layers=10, k_folds=5, penalty_type='l1', penalty_lambda=0.01, random_state=42), "GMDH-UFP-L1"),
         
-        # GMDH Variants - Spline Basis (NEW)
+        # GMDH Variants - Alternative Basis Functions
         (GMDH_Spline(n_keep=8, max_layers=10, ridge=1e-6, n_knots=3, k=3, patience=1, random_state=42), "GMDH-Spline"),
+        (GMDH_RBF(n_keep=8, max_layers=10, ridge=1e-6, n_centers=5, gamma=5.0, patience=1, random_state=42), "GMDH-RBF"),
+        (GMDH_Sigmoid(n_keep=8, max_layers=10, ridge=1e-6, n_centers=5, k=8.0, patience=1, random_state=42), "GMDH-Sigmoid"),
+        (GMDH_Trig(n_keep=8, max_layers=10, ridge=1e-6, n_harmonics=3, patience=1, random_state=42), "GMDH-Fourier"),
+        
+        # GMDH Variants - Architecture (NEW)
+        (GMDH_LookBack(n_keep=8, max_layers=10, ridge=1e-6, patience=1, lookback_scope='all', random_state=42), "GMDH-LookBack"),
         
         # GMDH Variants - Combined
         (GMDH_UFP_Hierarchical(n_keep=8, max_layers=10, penalty_type='l2', penalty_lambda=0.01, patience=1, random_state=42), "GMDH-UFP-Hierarchical"),
@@ -290,8 +304,14 @@ def main():
     print(f"   GMDH variants tested: {len(gmdh_results)}")
     print(f"   Baseline models tested: {len([r for r in successful_results if 'GMDH' not in r['name']])}")
     print(f"   Models failed: {len(failed_results)}")
-    print(f"\n   New variants:")
+    print(f"\n   New basis-function variants:")
     print(f"   - GMDH-Spline: RMSE={[r['rmse_test'] for r in gmdh_results if r['name'] == 'GMDH-Spline'][0]:.4f}")
+    print(f"   - GMDH-RBF: RMSE={[r['rmse_test'] for r in gmdh_results if r['name'] == 'GMDH-RBF'][0]:.4f}")
+    print(f"   - GMDH-Sigmoid: RMSE={[r['rmse_test'] for r in gmdh_results if r['name'] == 'GMDH-Sigmoid'][0]:.4f}")
+    print(f"   - GMDH-Fourier: RMSE={[r['rmse_test'] for r in gmdh_results if r['name'] == 'GMDH-Fourier'][0]:.4f}")
+    print(f"\n   New architecture variant:")
+    print(f"   - GMDH-LookBack: RMSE={[r['rmse_test'] for r in gmdh_results if r['name'] == 'GMDH-LookBack'][0]:.4f}")
+    print(f"\n   Combined variants:")
     print(f"   - GMDH-UFP-Hierarchical: RMSE={[r['rmse_test'] for r in gmdh_results if r['name'] == 'GMDH-UFP-Hierarchical'][0]:.4f}")
     print(f"   - GMDH-UFP-Hierarchical-CV: RMSE={[r['rmse_test'] for r in gmdh_results if r['name'] == 'GMDH-UFP-Hierarchical-CV'][0]:.4f}")
     
