@@ -1,6 +1,6 @@
 import numpy as np
 from itertools import combinations
-from typing import Optional, List
+from typing import Optional, List, Tuple
 
 
 class GMDHNeuron:
@@ -41,7 +41,7 @@ class GMDHLayer:
         self.best_error: float = np.inf       # lowest selection error in this layer
 
     def fit(self, Z_tr: np.ndarray, Z_se: np.ndarray,
-            y_tr: np.ndarray, y_se: np.ndarray):
+             y_tr: np.ndarray, y_se: np.ndarray) -> Tuple:
         """Z_tr, Z_se have shape (n_samples, n_inputs) for the train / selection
         splits. Returns the survivors' output columns on both splits, ready to be
         fed in as the next layer's inputs."""
