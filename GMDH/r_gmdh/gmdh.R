@@ -198,7 +198,7 @@ if (!dir.exists(data_dir)) {
        "\nPlease ensure the 'data/' folder is at the same level as the 'r_gmdh/' folder.")
 }
 
-datasets <- c("wildfire", "weather", "ecological", "air_quality")
+datasets <- c("wildfire", "weather", "ecological", "air_quality", "low_dim")
 missing_files <- datasets[!file.exists(file.path(data_dir, paste0(datasets, ".csv")))]
 if (length(missing_files) > 0) {
   stop("Missing dataset(s): ", paste(missing_files, collapse=", "),

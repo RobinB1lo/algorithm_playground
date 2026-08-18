@@ -16,7 +16,7 @@ system accurately.
 == Theoretical Basis: The Kolmogorov-Gabor Polynomial
 
 The target that GMDH ultimately approximates is the *Kolmogorov-Gabor
-polynomial* — the complete, arbitrarily high-degree multinomial expansion of
+polynomial*. The complete, arbitrarily high-degree multinomial expansion of
 an output variable $y$ in terms of $n$ input variables $x_1, ..., x_n$:
 
 $ y = a_0 + sum_(i=1)^n a_i x_i + sum_(i=1)^n sum_(j=i)^n a_(i j) x_i x_j

@@ -370,7 +370,8 @@ def main():
         ('wildfire', 'Wildfire'),
         ('weather', 'Weather'),
         ('ecological', 'Ecological'),
-        ('air_quality', 'Air Quality')  # Ultra-high dimensional
+        ('air_quality', 'Air Quality'),
+        ('low_dim', 'Low-Dimensional Synthetic')
     ]
     
     for dataset_key, dataset_name in datasets:

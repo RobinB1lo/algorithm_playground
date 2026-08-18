@@ -419,6 +419,38 @@ def generate_air_quality_dataset(n_samples=250, random_state=42):
     df = pd.DataFrame(df_data)
     return df
 
+def generate_low_dim_dataset(n_samples=500, random_state=42):
+    """
+    Dataset 5: Low-dimensional synthetic regression
+    Features: 3 independent variables (X1, X2, X3) with simple quadratic interactions
+    Target: y = 2*X1^2 + 1.5*X2*X3 + 3*X1 - 0.5*X2 + noise
+    
+    This dataset is designed to be easy for GMDH: low dimension, clear polynomial structure.
+    """
+    rng = np.random.RandomState(random_state)
+    
+    # Generate three features uniformly in [-3, 3]
+    X1 = rng.uniform(-3, 3, n_samples)
+    X2 = rng.uniform(-3, 3, n_samples)
+    X3 = rng.uniform(-3, 3, n_samples)
+    
+    # True function: quadratic and interaction terms
+    y = (2 * X1**2 + 1.5 * X2 * X3 + 3 * X1 - 0.5 * X2 + 
+         0.8 * X3**2 - 1.2 * X1 * X2)
+    
+    # Add moderate heteroscedastic noise
+    noise_scale = 0.5 + 0.1 * np.abs(y)
+    noise = rng.normal(0, noise_scale)
+    y = y + noise
+    
+    df = pd.DataFrame({
+        'x1': X1,
+        'x2': X2,
+        'x3': X3,
+        'target': y
+    })
+    return df
+
 
 def main():
     """Generate and save all four datasets."""
@@ -461,9 +493,17 @@ def main():
     print(f"  Complex atmospheric chemistry interactions")
     print(f"  Optimal regime for GMDH performance")
     print(f"  Saved to {path_air_quality}")
+
+    # Dataset 5: Low-dimensional synthetic
+    df_low_dim = generate_low_dim_dataset(n_samples=500)
+    path_low_dim = data_dir / "low_dim.csv"
+    df_low_dim.to_csv(path_low_dim, index=False)
+    print(f"\n✓ Low-dimensional dataset: {len(df_low_dim)} samples, {len(df_low_dim.columns)-1} features")
+    print(f"  Very low-dimensional regime (3 features)")
+    print(f"  Saved to {path_low_dim}")
     
     print("\n" + "="*70)
-    print("All 4 datasets generated successfully.")
+    print("All 5 datasets generated successfully.")
     print("="*70)
 
 
