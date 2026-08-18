@@ -2,4 +2,6 @@ algo_env/
 /regressions/
 notes/
 current_instructions.md
-
+data/
+results/
+r_results/
