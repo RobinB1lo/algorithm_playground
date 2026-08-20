@@ -7,9 +7,9 @@ class GMDHNeuron:
     __slots__ = ('i', 'j', 'w')
 
     def __init__(self, i: int, j: int) -> None:
-        self.i = i                          # column index into the layer's inputs
-        self.j = j                          # column index
-        self.w: Optional[np.ndarray] = None # coefficients, set by fit()
+        self.i = i                          
+        self.j = j                          
+        self.w: Optional[np.ndarray] = None 
 
     @staticmethod
     def _features(a: np.ndarray, b: np.ndarray) -> np.ndarray:
@@ -190,6 +190,78 @@ class GMDH:
         # Trim to best layer (discard layers built after the best one)
         self.layers_ = self.layers_[:best_layer_idx + 1]
         self.best_error_ = best_error
+
+    def _neuron_equation(self, neuron: GMDHNeuron, feature_names: List[str]) -> str:
+        """Build string representation of a neuron's polynomial equation."""
+        a_name = feature_names[neuron.i]
+        b_name = feature_names[neuron.j]
+        w = neuron.w
+        
+        terms = []
+        # Constant term
+        if abs(w[0]) > 1e-10:
+            terms.append(f"{w[0]:+.6f}")
+        # Linear terms
+        if abs(w[1]) > 1e-10:
+            terms.append(f"{w[1]:+.6f}*{a_name}")
+        if abs(w[2]) > 1e-10:
+            terms.append(f"{w[2]:+.6f}*{b_name}")
+        # Interaction term
+        if abs(w[3]) > 1e-10:
+            terms.append(f"{w[3]:+.6f}*{a_name}*{b_name}")
+        # Quadratic terms
+        if abs(w[4]) > 1e-10:
+            terms.append(f"{w[4]:+.6f}*{a_name}²")
+        if abs(w[5]) > 1e-10:
+            terms.append(f"{w[5]:+.6f}*{b_name}²")
+        
+        # Join terms, cleaning up leading +
+        eq = " ".join(terms) if terms else "0"
+        eq = eq.lstrip("+").strip()
+        return eq
+
+    def print_equation(self, feature_names: Optional[List[str]] = None) -> None:
+        """Print the GMDH network's final polynomial equation after fitting."""
+        if not self.layers_:
+            print("No layers fitted.")
+            return
+        
+        n_features = len(self.x_mean_)
+        if feature_names is None:
+            feature_names = [f"x{i}" for i in range(n_features)]
+        
+        print("\n" + "=" * 80)
+        print("GMDH Network: Final Polynomial Equation")
+        print("=" * 80)
+        
+        # Track feature names through layers
+        current_features = feature_names.copy()
+        layer_outputs = {}  # For reference if needed
+        
+        for layer_idx, layer in enumerate(self.layers_):
+            print(f"\n--- Layer {layer_idx + 1} ---")
+            print(f"Best Selection Error: {layer.best_error:.6f}")
+            print(f"Neurons kept: {len(layer.neurons)}")
+            
+            next_features = []
+            for neuron_idx, neuron in enumerate(layer.neurons):
+                eq = self._neuron_equation(neuron, current_features)
+                var_name = f"z{layer_idx}_{neuron_idx}"
+                next_features.append(var_name)
+                print(f"\n  {var_name} = {eq}")
+            
+            current_features = next_features
+            layer_outputs[layer_idx] = current_features
+        
+        # Final equation
+        final_var = current_features[0]
+        print(f"\n" + "=" * 80)
+        print("FINAL PREDICTION (standardized):")
+        print(f"  y_standardized = {final_var}")
+        
+        print("\nDE-STANDARDIZE TO ORIGINAL SCALE:")
+        print(f"  y_predicted = {final_var} × {self.y_std_:.6f} + {self.y_mean_:.6f}")
+        print("=" * 80 + "\n")
 
     def predict(self, X: np.ndarray) -> np.ndarray:
         """Predict on new data.
