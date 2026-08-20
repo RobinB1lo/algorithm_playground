@@ -243,6 +243,87 @@ class GMDH_Spline:
         self.layers_ = self.layers_[:best_layer_idx + 1]
         self.best_error_ = best_error
 
+    def _neuron_equation(self, neuron: GMDHNeuronSpline, feature_names: List[str]) -> str:
+        """Build description of spline neuron's learned equation."""
+        a_name = feature_names[neuron.i]
+        b_name = feature_names[neuron.j]
+        w = neuron.w
+        
+        # Number of basis functions
+        interior_knots = np.linspace(0, 1, neuron.n_knots)
+        knots = np.concatenate([[0] * (neuron.k + 1), interior_knots, [1] * (neuron.k + 1)])
+        n_basis = len(knots) - neuron.k - 1
+        
+        terms = []
+        # Constant term
+        if abs(w[0]) > 1e-10:
+            terms.append(f"{w[0]:+.6f}*const")
+        
+        # a basis functions
+        for i in range(n_basis):
+            if abs(w[1 + i]) > 1e-10:
+                terms.append(f"{w[1 + i]:+.6f}*{a_name}_B{i}")
+        
+        # b basis functions
+        for i in range(n_basis):
+            if abs(w[1 + n_basis + i]) > 1e-10:
+                terms.append(f"{w[1 + n_basis + i]:+.6f}*{b_name}_B{i}")
+        
+        # Interaction terms (only show active ones)
+        interaction_start = 1 + 2 * n_basis
+        for ai in range(n_basis):
+            for bi in range(n_basis):
+                idx = interaction_start + ai * n_basis + bi
+                if abs(w[idx]) > 1e-10:
+                    terms.append(f"{w[idx]:+.6f}*{a_name}_B{ai}×{b_name}_B{bi}")
+        
+        eq = " ".join(terms) if terms else "0"
+        eq = eq.lstrip("+").strip()
+        return eq
+
+    def print_equation(self, feature_names: Optional[List[str]] = None) -> None:
+        """Print the GMDH-Spline network's learned equations."""
+        if not self.layers_:
+            print("No layers fitted.")
+            return
+        
+        n_features = len(self.x_mean_)
+        if feature_names is None:
+            feature_names = [f"x{i}" for i in range(n_features)]
+        
+        print("\n" + "=" * 80)
+        print("GMDH-Spline Network: Final Spline Equations")
+        print(f"Spline degree (k): {self.layers_[0].k}")
+        print(f"Interior knots (n_knots): {self.layers_[0].n_knots}")
+        print("=" * 80)
+        
+        current_features = feature_names.copy()
+        
+        for layer_idx, layer in enumerate(self.layers_):
+            print(f"\n--- Layer {layer_idx + 1} ---")
+            print(f"Best Selection Error: {layer.best_error:.6f}")
+            print(f"Neurons kept: {len(layer.neurons)}")
+            
+            next_features = []
+            for neuron_idx, neuron in enumerate(layer.neurons):
+                eq = self._neuron_equation(neuron, current_features)
+                var_name = f"z{layer_idx}_{neuron_idx}"
+                next_features.append(var_name)
+                print(f"\n  {var_name} = {eq}")
+                print(f"       (combines {current_features[neuron.i]} and {current_features[neuron.j]} via B-splines)")
+            
+            current_features = next_features
+        
+        # Final equation
+        final_var = current_features[0]
+        print(f"\n" + "=" * 80)
+        print("FINAL PREDICTION (standardized):")
+        print(f"  y_standardized = {final_var}")
+        
+        print("\nDE-STANDARDIZE TO ORIGINAL SCALE:")
+        print(f"  y_predicted = {final_var} × {self.y_std_:.6f} + {self.y_mean_:.6f}")
+        print("=" * 80 + "\n")
+
     def predict(self, X: np.ndarray) -> np.ndarray:
         """Predict on new data."""
         X_std = (X - self.x_mean_) / self.x_std_
