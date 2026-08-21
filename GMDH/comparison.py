@@ -1,7 +1,7 @@
 """
 Comprehensive GMDH Algorithm Comparison Framework
 
-Loads environmental datasets from CSV files and compares all 13 GMDH variants
+Loads environmental datasets from CSV files and compares all 1 GMDH variants
 against standard ML baselines.
 """
 
@@ -29,8 +29,6 @@ from evaluation_metric_change.hierarchical.hierarchical_gmdh import GMDH_Hierarc
 from cv_and_look_back.cv.cv_gmdh import GMDH_CV
 from fractional_polynomials.cfp.cfp_gmdh import GMDH_Constrained
 from fractional_polynomials.ufp.ufp_gmdh import GMDH_Unconstrained
-from fractional_polynomials.ufp_hierarchical.ufp_hierarchical_gmdh import GMDH_UFP_Hierarchical
-from fractional_polynomials.ufp_hierarchical_cv.ufp_hierarchical_cv_gmdh import GMDH_UFP_Hierarchical_CV
 from basis_change.fourier.fourier_basis_gmdh import GMDH_Trig
 from basis_change.radial.rbf_basis_gmdh import GMDH_RBF
 from basis_change.sigmoid.sigmoid_basis_gmdh import GMDH_Sigmoid
@@ -97,7 +95,7 @@ class GMDHComparison:
         self.test_size = test_size
         self.results = []
         
-        # Initialize all 13 GMDH variants
+        # Initialize all 11 GMDH variants
         self.gmdh_models = {
             'Vanilla GMDH': GMDH(random_state=random_state, max_layers=15, ridge=1e-3, n_keep=8),
             'AIC': GMDH_AIC(random_state=random_state, max_layers=15, ridge=1e-3, n_keep=8),
@@ -105,8 +103,6 @@ class GMDHComparison:
             'CV': GMDH_CV(random_state=random_state, max_layers=15, n_keep=8, k_folds=5),
             'Constrained Fractional Poly': GMDH_Constrained(random_state=random_state, max_layers=15, n_keep=8),
             'Unconstrained Fractional Poly': GMDH_Unconstrained(random_state=random_state, max_layers=15, n_keep=8),
-            'UFP Hierarchical': GMDH_UFP_Hierarchical(random_state=random_state, max_layers=15, n_keep=8),
-            'UFP Hierarchical CV': GMDH_UFP_Hierarchical_CV(random_state=random_state, max_layers=15, n_keep=8, k_folds=5),
             'Fourier/Trig': GMDH_Trig(random_state=random_state, max_layers=15, n_keep=8),
             'RBF': GMDH_RBF(random_state=random_state, max_layers=15, n_keep=8),
             'Sigmoid': GMDH_Sigmoid(random_state=random_state, max_layers=15, n_keep=8),
@@ -189,7 +185,7 @@ class GMDHComparison:
         dataset_results = []
         
         # GMDH models
-        print("\n--- GMDH Variants (13) ---")
+        print("\n--- GMDH Variants (1) ---")
         for name, model in self.gmdh_models.items():
             result = self.evaluate_model(model, X_train, X_test, y_train, y_test, name)
             dataset_results.append(result)
