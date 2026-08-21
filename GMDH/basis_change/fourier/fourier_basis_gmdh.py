@@ -227,6 +227,97 @@ class GMDH_Trig:
         self.layers_ = self.layers_[:best_layer_idx + 1]
         self.best_error_ = best_error
 
+    def _neuron_equation(self, neuron: GMDHNeuronTrig, feature_names: List[str]) -> str:
+        """Build description of trigonometric neuron's learned equation."""
+        a_name = feature_names[neuron.i]
+        b_name = feature_names[neuron.j]
+        w = neuron.w
+        
+        harmonics = np.arange(1, neuron.n_harmonics + 1)
+        
+        terms = []
+        # Constant term
+        if abs(w[0]) > 1e-10:
+            terms.append(f"{w[0]:+.6f}*const")
+        
+        # a sin/cos terms
+        idx = 1
+        for h in harmonics:
+            if abs(w[idx]) > 1e-10:
+                terms.append(f"{w[idx]:+.6f}*sin({h}*{a_name})")
+            idx += 1
+            if abs(w[idx]) > 1e-10:
+                terms.append(f"{w[idx]:+.6f}*cos({h}*{a_name})")
+            idx += 1
+        
+        # b sin/cos terms
+        for h in harmonics:
+            if abs(w[idx]) > 1e-10:
+                terms.append(f"{w[idx]:+.6f}*sin({h}*{b_name})")
+            idx += 1
+            if abs(w[idx]) > 1e-10:
+                terms.append(f"{w[idx]:+.6f}*cos({h}*{b_name})")
+            idx += 1
+        
+        # Interaction terms (only show significant ones)
+        for ai_h in harmonics:
+            for ai_type in ['sin', 'cos']:
+                for bi_h in harmonics:
+                    for bi_type in ['sin', 'cos']:
+                        if abs(w[idx]) > 1e-10:
+                            a_term = f"{ai_type}({ai_h}*{a_name})"
+                            b_term = f"{bi_type}({bi_h}*{b_name})"
+                            terms.append(f"{w[idx]:+.6f}*{a_term}×{b_term}")
+                        idx += 1
+        
+        eq = " ".join(terms) if terms else "0"
+        eq = eq.lstrip("+").strip()
+        return eq
+
+    def print_equation(self, feature_names: Optional[List[str]] = None) -> None:
+        """Print the GMDH-Trig network's learned equations."""
+        if not self.layers_:
+            print("No layers fitted.")
+            return
+        
+        n_features = len(self.x_mean_)
+        if feature_names is None:
+            feature_names = [f"x{i}" for i in range(n_features)]
+        
+        print("\n" + "=" * 80)
+        print("GMDH-Fourier Network: Final Trigonometric (Sin/Cos) Equations")
+        print(f"Number of harmonics (n_harmonics): {self.layers_[0].n_harmonics}")
+        print("Note: Input range is mapped to [0, 2π], so each harmonic h represents")
+        print("      frequencies that complete h full cycles across the input range")
+        print("=" * 80)
+        
+        current_features = feature_names.copy()
+        
+        for layer_idx, layer in enumerate(self.layers_):
+            print(f"\n--- Layer {layer_idx + 1} ---")
+            print(f"Best Selection Error: {layer.best_error:.6f}")
+            print(f"Neurons kept: {len(layer.neurons)}")
+            
+            next_features = []
+            for neuron_idx, neuron in enumerate(layer.neurons):
+                eq = self._neuron_equation(neuron, current_features)
+                var_name = f"z{layer_idx}_{neuron_idx}"
+                next_features.append(var_name)
+                print(f"\n  {var_name} = {eq}")
+                print(f"       (combines {current_features[neuron.i]} and {current_features[neuron.j]} via Fourier)")
+            
+            current_features = next_features
+        
+        # Final equation
+        final_var = current_features[0]
+        print(f"\n" + "=" * 80)
+        print("FINAL PREDICTION (standardized):")
+        print(f"  y_standardized = {final_var}")
+        
+        print("\nDE-STANDARDIZE TO ORIGINAL SCALE:")
+        print(f"  y_predicted = {final_var} × {self.y_std_:.6f} + {self.y_mean_:.6f}")
+        print("=" * 80 + "\n")
+
     def predict(self, X: np.ndarray) -> np.ndarray:
         """Predict on new data."""
         X_std = (X - self.x_mean_) / self.x_std_

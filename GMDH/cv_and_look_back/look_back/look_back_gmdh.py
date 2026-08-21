@@ -218,6 +218,113 @@ class GMDH_LookBack:
         self.best_error_ = best_error
         self.all_nodes_ = all_nodes
 
+    def _build_node_name_map(self) -> dict:
+        """Map node IDs to human-readable names for equation printing."""
+        name_map = {}
+        for node in self.all_nodes_:
+            if isinstance(node, RawInputNode):
+                name_map[node.id] = f"x{node.feature_index}"
+            else:
+                name_map[node.id] = f"n{node.id}"
+        return name_map
+
+    def _node_equation_string(self, node: LBNode, name_map: dict, memo: dict) -> str:
+        """Recursively build equation string for a node."""
+        if node.id in memo:
+            return memo[node.id]
+        
+        if isinstance(node, RawInputNode):
+            result = name_map[node.id]
+        else:
+            # It's a LookBackNeuron
+            a_str = self._node_equation_string(node.parent_a, name_map, memo)
+            b_str = self._node_equation_string(node.parent_b, name_map, memo)
+            w = node.w
+            
+            # Build polynomial terms
+            terms = []
+            if abs(w[0]) > 1e-10:
+                terms.append(f"{w[0]:+.6f}")
+            if abs(w[1]) > 1e-10:
+                terms.append(f"{w[1]:+.6f}*({a_str})")
+            if abs(w[2]) > 1e-10:
+                terms.append(f"{w[2]:+.6f}*({b_str})")
+            if abs(w[3]) > 1e-10:
+                terms.append(f"{w[3]:+.6f}*({a_str})*({b_str})")
+            if abs(w[4]) > 1e-10:
+                terms.append(f"{w[4]:+.6f}*({a_str})²")
+            if abs(w[5]) > 1e-10:
+                terms.append(f"{w[5]:+.6f}*({b_str})²")
+            
+            expr = " ".join(terms) if terms else "0"
+            expr = expr.lstrip("+").strip()
+            result = f"({expr})"
+        
+        memo[node.id] = result
+        return result
+
+    def print_equation(self, feature_names: Optional[List[str]] = None) -> None:
+        """Print the GMDH-LookBack network's final DAG-based equation."""
+        if self.output_node_ is None:
+            print("No output node fitted.")
+            return
+        
+        n_features = len(self.x_mean_)
+        if feature_names is None:
+            feature_names = [f"x{i}" for i in range(n_features)]
+        
+        # Build name map
+        name_map = {}
+        for node in self.all_nodes_:
+            if isinstance(node, RawInputNode):
+                name_map[node.id] = feature_names[node.feature_index]
+            else:
+                name_map[node.id] = f"n{node.id}"
+        
+        print("\n" + "=" * 80)
+        print("GMDH-LookBack Network: Final DAG-Based Equation")
+        print(f"Scope: {self.lookback_scope}")
+        print("=" * 80)
+        
+        print(f"\nDAG Structure ({len(self.all_nodes_)} total nodes):")
+        print(f"  Raw inputs: {sum(1 for n in self.all_nodes_ if isinstance(n, RawInputNode))}")
+        print(f"  Neurons: {sum(1 for n in self.all_nodes_ if isinstance(n, LookBackNeuron))}")
+        
+        print(f"\n--- Neuron Definitions (selected for DAG) ---")
+        for node in self.all_nodes_:
+            if isinstance(node, LookBackNeuron):
+                a_name = name_map[node.parent_a.id]
+                b_name = name_map[node.parent_b.id]
+                w = node.w
+                
+                terms = []
+                if abs(w[0]) > 1e-10:
+                    terms.append(f"{w[0]:+.6f}")
+                if abs(w[1]) > 1e-10:
+                    terms.append(f"{w[1]:+.6f}*{a_name}")
+                if abs(w[2]) > 1e-10:
+                    terms.append(f"{w[2]:+.6f}*{b_name}")
+                if abs(w[3]) > 1e-10:
+                    terms.append(f"{w[3]:+.6f}*{a_name}*{b_name}")
+                if abs(w[4]) > 1e-10:
+                    terms.append(f"{w[4]:+.6f}*{a_name}²")
+                if abs(w[5]) > 1e-10:
+                    terms.append(f"{w[5]:+.6f}*{b_name}²")
+                
+                eq = " ".join(terms) if terms else "0"
+                eq = eq.lstrip("+").strip()
+                print(f"\n  {name_map[node.id]} = {eq}")
+        
+        print(f"\n" + "=" * 80)
+        print("FINAL PREDICTION (standardized, expanded form):")
+        memo = {}
+        expanded = self._node_equation_string(self.output_node_, name_map, memo)
+        print(f"  y_standardized = {expanded}")
+        
+        print("\nDE-STANDARDIZE TO ORIGINAL SCALE:")
+        print(f"  y_predicted = y_standardized × {self.y_std_:.6f} + {self.y_mean_:.6f}")
+        print("=" * 80 + "\n")
+
     def predict(self, X: np.ndarray) -> np.ndarray:
         """Predict on new data by recursively walking the DAG from the
         chosen output node back to raw inputs, memoizing shared ancestors."""
